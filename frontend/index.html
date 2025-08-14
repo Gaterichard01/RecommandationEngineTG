@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movie Hub - L'interface moderne</title>
+    <!-- On utilise Tailwind CSS pour un design rapide et responsive -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- On définit la police Inter comme dans l'original -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Pour les icônes, on utilise Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Définition des variables CSS pour les thèmes */
+        :root {
+            --bg-color: #0f172a; /* Bleu nuit foncé */
+            --card-bg: #1e293b; /* Gris-bleu foncé */
+            --text-color: #e2e8f0; /* Gris clair */
+            --btn-bg: #6366f1; /* Indigo */
+            --btn-hover-bg: #4f46e5;
+            --heart-color: #ef4444; /* Rouge pour le coeur */
+        }
+        body.light {
+            --bg-color: #f1f5f9; /* Gris clair */
+            --card-bg: #ffffff; /* Blanc */
+            --text-color: #0f172a; /* Bleu nuit foncé */
+            --btn-bg: #6366f1;
+            --btn-hover-bg: #4f46e5;
+            --heart-color: #dc2626;
+        }
+
+        /* Styles de base pour l'application */
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.3s ease;
+        }
+        .btn-primary {
+            background-color: var(--btn-bg);
+            color: white;
+            transition: background-color 0.2s ease;
+        }
+        .btn-primary:hover {
+            background-color: var(--btn-hover-bg);
+        }
+        .card {
+            background-color: var(--card-bg);
+            transition: background-color 0.3s ease;
+        }
+        .favorite-btn.active {
+            color: var(--heart-color);
+        }
+
+        /* Style de la modale */
+        .modal {
+            background-color: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(5px);
+        }
+        .modal-content {
+            background-color: var(--bg-color);
+        }
+        .movie-details-image {
+            min-height: 400px; /* Taille minimale pour un affichage propre */
+            background-size: cover;
+            background-position: center;
+        }
+    </style>
+</head>
+<body class="dark">
+    <!-- Conteneur principal de l'application -->
+    <div id="app-container" class="min-h-screen"></div>
+
+    <!-- Modale de détails du film (cachée par défaut) -->
+    <div id="movie-details-modal" class="modal fixed inset-0 z-50 hidden flex items-center justify-center p-4">
+        <div class="modal-content relative w-full max-w-4xl max-h-[90vh] rounded-lg shadow-lg overflow-y-auto">
+            <!-- Bouton de fermeture -->
+            <button id="close-modal-btn" class="absolute top-4 right-4 text-3xl text-gray-400 hover:text-white transition-colors duration-200">
+                <i class="fas fa-times"></i>
+            </button>
+            <div id="movie-details-content" class="flex flex-col md:flex-row">
+                <!-- Les détails seront injectés ici par JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Configuration de l'API ---
+        const BASE_API_URL = "http://127.0.0.1:8000";
+
+        // Coeur vide pour les favoris
+        const heartIcon = '<i class="far fa-heart"></i>';
+        const solidHeartIcon = '<i class="fas fa-heart"></i>';
+
+        // --- Fonctions de rendu des pages ---
+        
+        // Affiche l'écran de connexion/inscription
+        function renderAuthPage() {
+            document.getElementById('app-container').innerHTML = `
+                <div class="flex items-center justify-center min-h-screen">
+                    <div class="bg-gray-800 p-8 rounded-xl shadow-2xl w-full max-w-md text-center border border-gray-700">
+                        <h1 class="text-3xl font-bold mb-6 text-white">Movie Hub</h1>
+                        <form id="auth-form" class="space-y-4">
+                            <input type="text" id="username" placeholder="Nom d'utilisateur" class="w-full p-3 rounded-lg bg-gray-700 text-white placeholder-gray-400 hidden">
+                            <input type="email" id="email" placeholder="Email" class="w-full p-3 rounded-lg bg-gray-700 text-white placeholder-gray-400">
+                            <input type="password" id="password" placeholder="Mot de passe" class="w-full p-3 rounded-lg bg-gray-700 text-white placeholder-gray-400">
+                            <button type="submit" class="w-full btn-primary py-3 rounded-lg font-bold text-lg">Se connecter</button>
+                        </form>
+                        <div class="mt-6">
+                            <button id="toggle-auth-btn" class="text-sm text-indigo-400 hover:underline">
+                                Pas encore de compte ? S'inscrire
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            initAuthEvents();
+        }
+
+        // Affiche le tableau de bord principal
+        async function renderDashboard() {
+            const userId = localStorage.getItem('user_id');
+            const username = localStorage.getItem('username');
+
+            // On récupère le profil de l'utilisateur
+            const profileResponse = await fetch(`${BASE_API_URL}/profile/${userId}`);
+            const profileData = await profileResponse.json();
+            const displayName = profileData.username;
+
+            document.getElementById('app-container').innerHTML = `
+                <header class="bg-gray-900 shadow-md p-4 flex items-center justify-between sticky top-0 z-10">
+                    <div class="flex items-center space-x-4">
+                        <h1 class="text-2xl font-bold text-white">Bonjour, ${displayName} !</h1>
+                        <span id="theme-toggle" class="cursor-pointer text-xl text-gray-400 hover:text-white transition-colors duration-200">
+                            <i class="fas fa-sun"></i>
+                        </span>
+                    </div>
+                    <nav>
+                        <button id="favorites-btn" class="text-lg text-gray-400 hover:text-white transition-colors duration-200 p-2 rounded-full">
+                            <i class="fas fa-heart"></i>
+                        </button>
+                        <button id="logout-btn" class="text-sm btn-primary py-2 px-4 rounded-full ml-4">
+                            Déconnexion
+                        </button>
+                    </nav>
+                </header>
+                <main class="p-4">
+                    <!-- Section de recherche -->
+                    <div class="my-8 max-w-2xl mx-auto">
+                        <input type="text" id="search-input" placeholder="Rechercher un film..." class="w-full p-4 rounded-full bg-gray-800 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+
+                    <!-- Section des recommandations -->
+                    <h2 class="text-3xl font-bold mb-6 text-center">Films recommandés pour toi</h2>
+                    <div id="recommendations-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+                        <p class="col-span-full text-center text-gray-500">Chargement des recommandations...</p>
+                    </div>
+
+                    <!-- Section des favoris (cachée par défaut) -->
+                    <div id="favorites-section" class="hidden">
+                        <h2 class="text-3xl font-bold my-6 text-center">Mes films favoris</h2>
+                        <div id="favorites-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+                            <p class="col-span-full text-center text-gray-500">Aucun favori pour le moment.</p>
+                        </div>
+                    </div>
+                </main>
+                <!-- Notification box -->
+                <div id="notification-box" class="fixed bottom-4 right-4 p-4 rounded-lg text-white shadow-xl hidden transition-all duration-300"></div>
+            `;
+            initDashboardEvents();
+            fetchRecommendations();
+            fetchFavorites();
+        }
+
+        // --- Fonctions de gestion des événements ---
+
+        // Initialise les événements pour la page d'authentification
+        function initAuthEvents() {
+            const authForm = document.getElementById('auth-form');
+            const toggleAuthBtn = document.getElementById('toggle-auth-btn');
+            const usernameInput = document.getElementById('username');
+            let isLogin = true;
+
+            toggleAuthBtn.addEventListener('click', () => {
+                isLogin = !isLogin;
+                usernameInput.classList.toggle('hidden', isLogin);
+                toggleAuthBtn.textContent = isLogin ? "Pas encore de compte ? S'inscrire" : "J'ai déjà un compte ! Me connecter";
+                authForm.querySelector('button').textContent = isLogin ? "Se connecter" : "S'inscrire";
+            });
+
+            authForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                const username = usernameInput.value;
+                
+                const url = isLogin ? `${BASE_API_URL}/login` : `${BASE_API_URL}/register`;
+                const payload = isLogin ? { email, password } : { email, password, username };
+                
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        localStorage.setItem('user_id', data.user_id);
+                        localStorage.setItem('username', data.username);
+                        renderDashboard();
+                        showNotification(`Bienvenue, ${data.username} !`);
+                    } else {
+                        showNotification(data.detail || "Une erreur est survenue.", 'error');
+                    }
+                } catch (error) {
+                    showNotification("Erreur de connexion au serveur.", 'error');
+                }
+            });
+        }
+        
+        // Initialise les événements pour le tableau de bord
+        function initDashboardEvents() {
+            document.getElementById('logout-btn').addEventListener('click', logout);
+            document.getElementById('search-input').addEventListener('input', handleSearch);
+            document.getElementById('favorites-btn').addEventListener('click', toggleFavoritesSection);
+            document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+
+            // Écoute les clics pour les boutons de favoris et de détails
+            document.getElementById('app-container').addEventListener('click', (e) => {
+                if (e.target.closest('.favorite-btn')) {
+                    const btn = e.target.closest('.favorite-btn');
+                    const movieId = btn.getAttribute('data-movie-id');
+                    toggleFavorite(movieId, btn);
+                }
+                if (e.target.closest('.details-btn')) {
+                    const btn = e.target.closest('.details-btn');
+                    const movieId = btn.getAttribute('data-movie-id');
+                    showMovieDetailsModal(movieId);
+                }
+            });
+
+            // Événement pour fermer la modale
+            document.getElementById('close-modal-btn').addEventListener('click', () => {
+                document.getElementById('movie-details-modal').classList.add('hidden');
+            });
+        }
+
+        // --- Fonctions de l'application ---
+
+        // Gère la recherche en temps réel
+        let searchTimeout;
+        function handleSearch(e) {
+            clearTimeout(searchTimeout);
+            const query = e.target.value.trim();
+            if (query.length > 2) {
+                searchTimeout = setTimeout(() => {
+                    fetchMovies(query, "Rechercher des films...");
+                }, 500);
+            } else if (query.length === 0) {
+                fetchRecommendations(); // Revenir aux recommandations si la recherche est vide
+            }
+        }
+
+        // Récupère et affiche les films à partir de l'API
+        async function fetchMovies(query, title) {
+            const container = document.getElementById('recommendations-container');
+            container.innerHTML = `<p class="col-span-full text-center text-gray-500">Recherche en cours...</p>`;
+            document.querySelector('main h2').textContent = title;
+
+            try {
+                const response = await fetch(`${BASE_API_URL}/search/${query}`);
+                const data = await response.json();
+                
+                if (data.results && data.results.length > 0) {
+                    container.innerHTML = data.results.map(movie => generateMovieCardHtml(movie)).join('');
+                } else {
+                    container.innerHTML = `<p class="col-span-full text-center text-gray-500">Aucun film trouvé pour "${query}".</p>`;
+                }
+                
+                // Vérifie et met à jour l'état des favoris après le rendu
+                await updateFavoriteIcons();
+            } catch (error) {
+                console.error("Erreur lors de la recherche des films:", error);
+                container.innerHTML = `<p class="col-span-full text-center text-red-500">Erreur lors de la recherche. Veuillez réessayer.</p>`;
+            }
+        }
+
+        // Récupère et affiche les recommandations
+        async function fetchRecommendations() {
+            const userId = localStorage.getItem('user_id');
+            const container = document.getElementById('recommendations-container');
+            document.querySelector('main h2').textContent = "Films recommandés pour toi";
+            
+            try {
+                const response = await fetch(`${BASE_API_URL}/recommend/${userId}`);
+                const data = await response.json();
+                
+                if (data.recommendations && data.recommendations.length > 0) {
+                    container.innerHTML = data.recommendations.map(movie => generateMovieCardHtml(movie)).join('');
+                } else {
+                    container.innerHTML = `<p class="col-span-full text-center text-gray-500">Aucune recommandation disponible. Ajoute quelques films à tes favoris pour en voir !</p>`;
+                }
+
+                await updateFavoriteIcons();
+            } catch (error) {
+                console.error("Erreur lors de la récupération des recommandations:", error);
+                container.innerHTML = `<p class="col-span-full text-center text-red-500">Erreur lors du chargement des recommandations.</p>`;
+            }
+        }
+
+        // Récupère et affiche les favoris
+        async function fetchFavorites() {
+            const userId = localStorage.getItem('user_id');
+            const container = document.getElementById('favorites-container');
+            try {
+                const response = await fetch(`${BASE_API_URL}/favorites/${userId}`);
+                const data = await response.json();
+
+                if (data.favorites && data.favorites.length > 0) {
+                    container.innerHTML = data.favorites.map(movie => generateMovieCardHtml(movie)).join('');
+                } else {
+                    container.innerHTML = `<p class="col-span-full text-center text-gray-500">Aucun film favori pour le moment.</p>`;
+                }
+                
+                // Met à jour les icônes de favoris après le rendu
+                await updateFavoriteIcons();
+            } catch (error) {
+                console.error("Erreur lors de la récupération des favoris:", error);
+            }
+        }
+        
+        // Gère l'ajout/retrait d'un film des favoris
+        async function toggleFavorite(movieId, buttonElement) {
+            const userId = localStorage.getItem('user_id');
+            const isFavorite = buttonElement.classList.contains('active');
+            
+            try {
+                const response = await fetch(`${BASE_API_URL}/favorites`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId, movie_id: parseInt(movieId) })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    if (data.status === 'ajouté') {
+                        buttonElement.classList.add('active');
+                        buttonElement.innerHTML = solidHeartIcon;
+                        showNotification(`"${document.querySelector(`.card[data-movie-id="${movieId}"] h3`).textContent}" a été ajouté aux favoris.`);
+                    } else {
+                        buttonElement.classList.remove('active');
+                        buttonElement.innerHTML = heartIcon;
+                        showNotification(`"${document.querySelector(`.card[data-movie-id="${movieId}"] h3`).textContent}" a été retiré des favoris.`);
+                    }
+                    // Met à jour les sections visibles
+                    fetchFavorites();
+                } else {
+                    showNotification(data.detail || "Une erreur est survenue.", 'error');
+                }
+            } catch (error) {
+                showNotification("Erreur de connexion au serveur.", 'error');
+            }
+        }
+        
+        // Affiche la modale de détails d'un film
+        async function showMovieDetailsModal(movieId) {
+            const modal = document.getElementById('movie-details-modal');
+            const content = document.getElementById('movie-details-content');
+            
+            content.innerHTML = `
+                <div class="flex-grow p-8 text-center">
+                    <div class="animate-pulse flex flex-col items-center">
+                        <div class="bg-gray-700 h-64 w-48 rounded-lg mb-4"></div>
+                        <div class="h-4 bg-gray-700 w-3/4 rounded mb-2"></div>
+                        <div class="h-4 bg-gray-700 w-1/2 rounded"></div>
+                    </div>
+                </div>
+            `;
+            modal.classList.remove('hidden');
+
+            try {
+                const response = await fetch(`${BASE_API_URL}/movie/${movieId}`);
+                const movie = await response.json();
+
+                if (response.ok) {
+                    const providers = movie.watch_providers;
+                    
+                    let freeStreamingHtml = '';
+                    if (providers && providers.free && providers.free.length > 0) {
+                        const firstFreeProvider = providers.free[0];
+                        freeStreamingHtml = `
+                            <div class="mt-4 p-4 rounded-lg bg-gray-700 flex items-center space-x-4">
+                                <img src="https://image.tmdb.org/t/p/w92${firstFreeProvider.logo_path}" alt="${firstFreeProvider.provider_name}" class="w-10 h-10 rounded-full">
+                                <div>
+                                    <p class="text-sm text-gray-200">Disponible gratuitement sur</p>
+                                    <a href="${providers.link}" target="_blank" class="font-bold text-indigo-400 hover:underline">${firstFreeProvider.provider_name}</a>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    let paidStreamingHtml = '';
+                    if (providers && providers.flatrate && providers.flatrate.length > 0) {
+                        // On prend le premier fournisseur de streaming payant
+                        const firstPaidProvider = providers.flatrate[0];
+                        paidStreamingHtml = `
+                            <div class="mt-4 p-4 rounded-lg bg-gray-700 flex items-center space-x-4">
+                                <img src="https://image.tmdb.org/t/p/w92${firstPaidProvider.logo_path}" alt="${firstPaidProvider.provider_name}" class="w-10 h-10 rounded-full">
+                                <div>
+                                    <p class="text-sm text-gray-200">Disponible en streaming sur</p>
+                                    <a href="${providers.link}" target="_blank" class="font-bold text-indigo-400 hover:underline">${firstPaidProvider.provider_name}</a>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    const noProviderMessage = (freeStreamingHtml === '' && paidStreamingHtml === '') 
+                        ? `<p class="text-sm text-gray-400">Aucune plateforme de streaming trouvée.</p>`
+                        : '';
+                    
+                    content.innerHTML = `
+                        <div class="w-full md:w-1/3 movie-details-image rounded-t-lg md:rounded-l-lg md:rounded-t-none" style="background-image: url('https://image.tmdb.org/t/p/w500${movie.poster_path}');"></div>
+                        <div class="w-full md:w-2/3 p-8">
+                            <h3 class="text-4xl font-bold mb-2">${movie.title}</h3>
+                            <p class="text-xl text-gray-400 mb-4">${movie.release_date ? `(${movie.release_date.substring(0, 4)})` : 'Date inconnue'}</p>
+                            <p class="text-gray-300 mb-6">${movie.overview}</p>
+                            <div class="space-y-4">
+                                ${freeStreamingHtml}
+                                ${paidStreamingHtml}
+                                ${noProviderMessage}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    content.innerHTML = `<p class="p-8 text-center text-red-500">${movie.detail}</p>`;
+                }
+            } catch (error) {
+                content.innerHTML = `<p class="p-8 text-center text-red-500">Erreur de connexion au serveur.</p>`;
+            }
+        }
+
+        // Vérifie les favoris de l'utilisateur et met à jour les icônes
+        async function updateFavoriteIcons() {
+            const userId = localStorage.getItem('user_id');
+            if (!userId) return;
+
+            const response = await fetch(`${BASE_API_URL}/favorites/${userId}`);
+            const data = await response.json();
+            const favoriteIds = new Set(data.favorites.map(fav => fav.id));
+
+            document.querySelectorAll('.favorite-btn').forEach(btn => {
+                const movieId = parseInt(btn.getAttribute('data-movie-id'));
+                if (favoriteIds.has(movieId)) {
+                    btn.classList.add('active');
+                    btn.innerHTML = solidHeartIcon;
+                } else {
+                    btn.classList.remove('active');
+                    btn.innerHTML = heartIcon;
+                }
+            });
+        }
+        
+        // Crée le HTML d'une carte de film
+        function generateMovieCardHtml(movie) {
+            const imageUrl = movie.poster_path || 'https://placehold.co/500x750/0f172a/e2e8f0?text=Affiche non disponible';
+            const favoriteIconHtml = movie.isFavorite ? solidHeartIcon : heartIcon;
+
+            // Ajout du bouton "Voir"
+            return `
+                <div class="card p-4 rounded-xl shadow-lg hover:shadow-2xl transition-transform transform hover:scale-105 duration-300 relative group" data-movie-id="${movie.id}">
+                    <img src="${imageUrl}" alt="Affiche du film ${movie.title}" class="w-full h-auto rounded-lg mb-4">
+                    <div class="absolute inset-0 bg-black bg-opacity-70 flex flex-col justify-end p-4 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        <div class="relative">
+                            <h3 class="text-xl font-bold mb-2 text-white">${movie.title}</h3>
+                            <p class="text-sm text-gray-400 mb-4">${movie.release_date || 'Date inconnue'}</p>
+                            <div class="mt-4 flex justify-between items-center">
+                                <button data-movie-id="${movie.id}" class="details-btn btn-primary py-2 px-4 rounded-full text-sm">Voir</button>
+                                <button data-movie-id="${movie.id}" class="favorite-btn text-2xl text-gray-400 hover:text-red-500 transition-colors duration-200">
+                                    ${favoriteIconHtml}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Gère l'affichage des sections (favoris ou recommandations)
+        function toggleFavoritesSection() {
+            const favoritesSection = document.getElementById('favorites-section');
+            const recommendationsContainer = document.getElementById('recommendations-container');
+            const searchInput = document.getElementById('search-input');
+            const mainTitle = document.querySelector('main h2');
+            
+            if (favoritesSection.classList.contains('hidden')) {
+                favoritesSection.classList.remove('hidden');
+                recommendationsContainer.classList.add('hidden');
+                searchInput.classList.add('hidden');
+                mainTitle.textContent = "Mes films favoris";
+            } else {
+                favoritesSection.classList.add('hidden');
+                recommendationsContainer.classList.remove('hidden');
+                searchInput.classList.remove('hidden');
+                mainTitle.textContent = "Films recommandés pour toi";
+                fetchRecommendations(); // Recharger les recommandations
+            }
+        }
+
+        // Gère la déconnexion
+        function logout() {
+            localStorage.clear();
+            history.pushState(null, '', '#login');
+            renderAuthPage();
+            showNotification("Tu as été déconnecté.");
+        }
+        
+        // Gère les notifications
+        function showNotification(message, type = 'success') {
+            const box = document.getElementById('notification-box');
+            box.textContent = message;
+            box.className = `fixed bottom-4 right-4 p-4 rounded-lg text-white shadow-xl transition-all duration-300 block`;
+            if (type === 'success') {
+                box.style.backgroundColor = 'rgba(16, 185, 129, 0.9)'; // Vert
+            } else {
+                box.style.backgroundColor = 'rgba(239, 68, 68, 0.9)'; // Rouge
+            }
+            setTimeout(() => {
+                box.classList.add('hidden');
+            }, 3000);
+        }
+
+        // Gère le thème clair/sombre
+        function setInitialTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.body.className = savedTheme;
+            const toggleIcon = document.querySelector('#theme-toggle i');
+            if (toggleIcon) {
+                toggleIcon.className = savedTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            }
+        }
+
+        function toggleTheme() {
+            const currentTheme = localStorage.getItem('theme') || 'dark';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.body.className = newTheme;
+            localStorage.setItem('theme', newTheme);
+            const toggleIcon = document.querySelector('#theme-toggle i');
+            if (toggleIcon) {
+                toggleIcon.className = newTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            }
+        }
+        
+        // --- Fonctions d'initialisation de l'application ---
+        function checkLoginStatus() {
+            setInitialTheme();
+            if (localStorage.getItem('user_id')) {
+                renderDashboard();
+            } else {
+                renderAuthPage();
+            }
+        }
+        
+        // On initialise l'app
+        checkLoginStatus();
+    </script>
+</body>
+</html>
