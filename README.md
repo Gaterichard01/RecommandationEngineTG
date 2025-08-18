@@ -1,54 +1,87 @@
-RecommandationEngineTG - Système de Recommandation de Films/Musiques (Simulé)
-Ce projet est une démonstration simple d'un algorithme de recommandation basé sur les préférences des utilisateurs. Il met en œuvre des concepts fondamentaux du Machine Learning pour simuler un système de recommandation que l'on pourrait trouver sur des plateformes comme Netflix ou Spotify.
+L'écosystème de Recommandation de Films
 
-Objectif Principal
-Construire un algorithme de recommandation basique en utilisant Python et des bibliothèques de ML, et le servir via une API web FastAPI.
+c'est un projet complet d'application de recommandation de films, composé d'une API backend et d'une interface web frontend. Il permet aux utilisateurs de gérer leurs favoris et de recevoir des recommandations personnalisées basées sur leurs préférences.
 
-Fonctionnalités
-Base de Données Simulée : Utilisation de fichiers CSV pour les films/musiques et les préférences des utilisateurs.
+ ## Vue d'ensemble des fonctionnalités
 
-Algorithme de Recommandation :
+  * **Authentification sécurisée** : Inscription et connexion des utilisateurs avec gestion des mots de passe hachés.
+  * **Recherche de films** : Un moteur de recherche puissant qui utilise l'API TMDB pour trouver des films pertinents.
+  * **Gestion des favoris** : Les utilisateurs peuvent ajouter ou retirer des films de leur liste de favoris, stockée sur Firestore.
+  * **Recommandations intelligentes** : Des suggestions de films sont générées en se basant sur la liste de favoris de l'utilisateur. Si la liste est vide, les films populaires sont affichés par défaut.
+  * **Détails enrichis** : Les cartes de films et la modale de détails affichent le résumé, la date de sortie, la note, et surtout, les plateformes de streaming disponibles en France.
+  * **Interface utilisateur moderne** : Une interface utilisateur élégante, réactive et en une seule page (SPA) qui propose un mode sombre et un mode clair.
 
-Filtrage Collaboratif basé sur la similarité des utilisateurs.
+## Stack Technique
 
-Filtrage basé sur le Contenu en fonction des genres.
+Ce projet est conçu en deux parties distinctes :
 
-Combinaison des deux approches pour des recommandations plus robustes.
+### 1\. Backend (API)
 
-API REST : Un endpoint /recommend/{user_id} retourne des recommandations pour un utilisateur donné.
+  * **Langage** : Python 3.10+
+  * **Framework** : **FastAPI** pour construire l'API.
+  * **Base de données** : **Google Cloud Firestore** pour stocker les informations des utilisateurs et leurs listes de favoris.
+  * **Source de données** : **The Movie Database (TMDB)** pour les informations sur les films.
+  * **Dépendances** : uvicorn, python-dotenv, firebase-admin, pydantic, requests, httpx.
 
-Technologies Utilisées
-Python 3.x
+### 2\. Frontend (Interface Web)
 
-pandas : Manipulation de données.
+  * **Langages** : HTML5, CSS3, JavaScript (Vanilla JS)
+  * **Framework CSS** : **Tailwind CSS** pour un design rapide et un style personnalisable.
+  * **Librairie d'icônes** : **Font Awesome** pour les icônes de cœurs, d'étoiles, etc.
+  * **Type d'application** : Single Page Application (SPA).
 
-numpy : Opérations numériques.
 
-scikit-learn : Calcul de similarité (cosine_similarity).
+##  Installation et Lancement
 
-FastAPI : Framework pour l'API.
+Pour lancer l'ensemble de l'écosystème FilmPulse, suivez ces étapes :
 
-uvicorn : Serveur ASGI.
+### Étape 1 : Configuration de l'API Backend
 
-Installation et Lancement
-Préparer les fichiers :
+1.  **Clonez le dépôt** :
 
-Créez un dossier RecommandationEngineTG/.
+  
+    git clone <URL_DU_DÉPÔT>
+    cd <NOM_DU_DOSSIER>
+   
 
-Créez les sous-dossiers data/ et app/.
+2.  **Créez un environnement virtuel et installez les dépendances** :
 
-Créez et placez tous les fichiers de ce projet dans les dossiers appropriés.
+   
+    python -m venv venv
+    source venv/bin/activate  # Pour macOS/Linux
+    venv\Scripts\activate     # Pour Windows
+    pip install -r requirements.txt
 
-Installer les dépendances :
 
-pip install -r requirements.txt
+     Si vous n'avez pas de fichier requirements.txt, vous pouvez l'installer avec pip install fastapi uvicorn python-dotenv firebase-admin pydantic requests httpx.
 
-Lancer l'API :
+3.  **Configurez les clés d'API** :
 
-uvicorn app.main:app --reload
+      * Créez un fichier .env à la racine de votre projet avec votre clé TMDB :
+      
+        TMDB_API_KEY=votre_cle_api_tmdb
+      
+      * Téléchargez votre clé de compte de service Firebase (au format JSON) et placez-la à la racine du dossier de l'API. Assurez-vous que son nom corresponde à celui configuré dans le code.
 
-L'API sera disponible à l'adresse http://127.0.0.1:8000.
+4.  **Lancez le serveur API** :
 
-Utiliser l'interface Web :
 
-Ouvrez le fichier index.html dans votre navigateur.
+    uvicorn main:app --reload
+
+
+    Le backend sera accessible sur `http://127.0.0.1:8000`.
+
+### Étape 2 : Lancement de l'Interface Frontend
+
+1.  **Ouvrez le fichier HTML** :
+      * Ouvrez le fichier index.html (ou tout autre nom que vous avez donné) dans votre navigateur web. Vous n'avez pas besoin d'un serveur local pour cela, car tout est géré par JavaScript.
+      * **Important** : Si vous n'utilisez pas http://127.0.0.1:8000 pour l'API, vous devrez modifier la variable BASE_API_URL dans le code JavaScript du fichier HTML pour qu'elle pointe vers l'URL correcte.
+
+Une documentation interactive de l'API est automatiquement générée et accessible à l'adresse suivante lorsque le backend est en cours d'exécution :
+http://127.0.0.1:8000/docs
+
+Les contributions, rapports de bugs et suggestions d'amélioration sont les bienvenus. N'hésitez pas à ouvrir une `issue` ou à soumettre une `pull request`.
+
+## 📜 Licence
+
+Ce projet est distribué sous la licence MIT.
